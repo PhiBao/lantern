@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+app/.next/
+app/out/
+contracts/target/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Vercel
+.vercel/

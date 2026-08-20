@@ -1,0 +1,16 @@
+{
+  "name": "lantern",
+  "private": true,
+  "description": "Private crowdfunding on Starknet. Public goals, private givers.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "pnpm --filter app dev",
+    "build": "pnpm --filter app build",
+    "test:contracts": "cd contracts && snforge test",
+    "test:app": "pnpm --filter app test",
+    "test": "pnpm test:contracts && pnpm test:app"
+  }
+}
