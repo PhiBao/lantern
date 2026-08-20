@@ -43,7 +43,6 @@ fn test_create_campaign() {
     let (_, lantern) = deploy_lantern(pool_addr());
     let (token_addr, _) = deploy_mock_erc20();
 
-    // Set caller to organizer and set a future timestamp.
     start_cheat_block_timestamp(lantern.contract_address, 1000);
     start_cheat_caller_address(lantern.contract_address, organizer_addr());
 
@@ -111,7 +110,7 @@ fn test_donate_increments_tally() {
         ['LANTERN_DONATE:V1', 1, 0xDEAD].span(),
     );
     let result = lantern
-        .privacy_invoke(LanternOperation::Donate, 1, commitment_hash, 0, 0);
+        .privacy_invoke(token_addr, 500, LanternOperation::Donate, 1, commitment_hash, 0, 0);
     stop_cheat_caller_address(lantern.contract_address);
 
     // Should return empty span (funds parked).
@@ -147,7 +146,7 @@ fn test_donate_not_pool() {
     let commitment_hash = core::poseidon::poseidon_hash_span(
         ['LANTERN_DONATE:V1', 1, 0xDEAD].span(),
     );
-    lantern.privacy_invoke(LanternOperation::Donate, 1, commitment_hash, 0, 0);
+    lantern.privacy_invoke(token_addr, 500, LanternOperation::Donate, 1, commitment_hash, 0, 0);
 }
 
 #[test]
@@ -170,17 +169,17 @@ fn test_claim_refund() {
     let commitment_hash = core::poseidon::poseidon_hash_span(
         ['LANTERN_DONATE:V1', 1, secret].span(),
     );
-    lantern.privacy_invoke(LanternOperation::Donate, 1, commitment_hash, 0, 0);
+    lantern.privacy_invoke(token_addr, 500, LanternOperation::Donate, 1, commitment_hash, 0, 0);
     stop_cheat_caller_address(lantern.contract_address);
 
     // Advance past deadline — goal not met.
     start_cheat_block_timestamp(lantern.contract_address, 3000);
 
-    // Claim refund.
+    // Claim refund — amount=0 since no withdrawal needed (contract holds funds).
     start_cheat_caller_address(lantern.contract_address, pool_addr());
     let note_id: felt252 = 0xAABB;
     let result = lantern
-        .privacy_invoke(LanternOperation::ClaimRefund, 1, 0, note_id, secret);
+        .privacy_invoke(token_addr, 0, LanternOperation::ClaimRefund, 1, 0, note_id, secret);
     stop_cheat_caller_address(lantern.contract_address);
 
     // Should return one OpenNoteDeposit.
@@ -215,15 +214,15 @@ fn test_double_claim_refund() {
     let commitment_hash = core::poseidon::poseidon_hash_span(
         ['LANTERN_DONATE:V1', 1, secret].span(),
     );
-    lantern.privacy_invoke(LanternOperation::Donate, 1, commitment_hash, 0, 0);
+    lantern.privacy_invoke(token_addr, 500, LanternOperation::Donate, 1, commitment_hash, 0, 0);
     stop_cheat_caller_address(lantern.contract_address);
 
     start_cheat_block_timestamp(lantern.contract_address, 3000);
 
     start_cheat_caller_address(lantern.contract_address, pool_addr());
-    lantern.privacy_invoke(LanternOperation::ClaimRefund, 1, 0, 0xAABB, secret);
+    lantern.privacy_invoke(token_addr, 0, LanternOperation::ClaimRefund, 1, 0, 0xAABB, secret);
     // Second claim should panic.
-    lantern.privacy_invoke(LanternOperation::ClaimRefund, 1, 0, 0xAABB, secret);
+    lantern.privacy_invoke(token_addr, 0, LanternOperation::ClaimRefund, 1, 0, 0xAABB, secret);
 }
 
 #[test]
@@ -247,7 +246,7 @@ fn test_claim_payout() {
     let donate_commitment = core::poseidon::poseidon_hash_span(
         ['LANTERN_DONATE:V1', 1, 0xDEAD].span(),
     );
-    lantern.privacy_invoke(LanternOperation::Donate, 1, donate_commitment, 0, 0);
+    lantern.privacy_invoke(token_addr, 500, LanternOperation::Donate, 1, donate_commitment, 0, 0);
     stop_cheat_caller_address(lantern.contract_address);
 
     // Advance past deadline — goal met.
@@ -257,7 +256,7 @@ fn test_claim_payout() {
     start_cheat_caller_address(lantern.contract_address, pool_addr());
     let note_id: felt252 = 0xCCDD;
     let result = lantern
-        .privacy_invoke(LanternOperation::ClaimPayout, 1, 0, note_id, payout_secret);
+        .privacy_invoke(token_addr, 0, LanternOperation::ClaimPayout, 1, 0, note_id, payout_secret);
     stop_cheat_caller_address(lantern.contract_address);
 
     assert!(result.len() == 1, "payout should return one deposit");
@@ -291,12 +290,12 @@ fn test_payout_when_goal_not_met() {
     let donate_commitment = core::poseidon::poseidon_hash_span(
         ['LANTERN_DONATE:V1', 1, 0xDEAD].span(),
     );
-    lantern.privacy_invoke(LanternOperation::Donate, 1, donate_commitment, 0, 0);
+    lantern.privacy_invoke(token_addr, 500, LanternOperation::Donate, 1, donate_commitment, 0, 0);
     stop_cheat_caller_address(lantern.contract_address);
 
     start_cheat_block_timestamp(lantern.contract_address, 3000);
 
     // Try to claim payout — should fail.
     start_cheat_caller_address(lantern.contract_address, pool_addr());
-    lantern.privacy_invoke(LanternOperation::ClaimPayout, 1, 0, 0xCCDD, payout_secret);
+    lantern.privacy_invoke(token_addr, 0, LanternOperation::ClaimPayout, 1, 0, 0xCCDD, payout_secret);
 }

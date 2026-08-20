@@ -36,8 +36,20 @@ pub trait ILantern<T> {
 
     /// The privacy_invoke entrypoint called by the pool.
     /// Returns Span<OpenNoteDeposit> serialized.
+    ///
+    /// Parameters follow a fixed layout so the pool/wallet can extract
+    /// the input token and amount for the withdrawal:
+    /// - token: the ERC-20 being moved (withdraw for donate, approve for claims)
+    /// - amount: the amount being moved (donation amount, or 0 for claims)
+    /// - operation: which Lantern operation to perform
+    /// - campaign_id: target campaign
+    /// - commitment_hash: Poseidon commitment (donate) or 0 (claims)
+    /// - note_id: open note to credit (claims) or 0 (donate)
+    /// - secret: commitment preimage (claims) or 0 (donate)
     fn privacy_invoke(
         ref self: T,
+        token: starknet::ContractAddress,
+        amount: u128,
         operation: contracts::types::LanternOperation,
         campaign_id: u32,
         commitment_hash: felt252,
@@ -154,6 +166,8 @@ pub mod Lantern {
 
         fn privacy_invoke(
             ref self: ContractState,
+            token: ContractAddress,
+            amount: u128,
             operation: LanternOperation,
             campaign_id: u32,
             commitment_hash: felt252,
@@ -163,6 +177,10 @@ pub mod Lantern {
             // Only the pool can call this.
             let pool_addr = self.pool.read();
             assert(get_caller_address() == pool_addr, errors::CALLER_NOT_POOL);
+
+            // `token` and `amount` are extracted by the pool/wallet for withdrawal.
+            // The contract uses measured-delta accounting independently.
+            // `token` is validated against campaign.token inside each handler.
 
             match operation {
                 LanternOperation::Donate => {
