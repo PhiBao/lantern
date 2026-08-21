@@ -30,17 +30,31 @@ Where:
 
 ## Donate (park funds, no note credited back)
 
+The pool must first **withdraw** the donation to the Lantern contract, then
+`invoke` it. The escrow reference confirms this ordering: *"Tokens already
+transferred by the pool via Withdraw. Return empty span."*
+
 ```typescript
 import type { STRK20_ACTION } from "@starknet-io/types-js"
 
 const donateActions: STRK20_ACTION[] = [
+  // 1. Pool withdraws the donation from the user's shielded balance
+  //    to the Lantern contract.
+  {
+    type: "withdraw",
+    token: tokenAddress,
+    amount: donationAmount,
+    recipient: LANTERN_ADDRESS,
+  },
+  // 2. Pool calls privacy_invoke. Contract measures the delta, bumps the
+  //    tally, stores the commitment, returns an EMPTY span (funds park).
   {
     type: "invoke",
     contract: LANTERN_ADDRESS,
     calldata: [
-      tokenAddress,       // which token to withdraw from shielded balance
-      donationAmount,     // how much to withdraw (u128 as hex string)
-      "0x0",              // operation = Donate (enum index 0)
+      tokenAddress,       // token
+      donationAmount,     // amount (contract still measures independently)
+      "0x0",              // operation = Donate
       campaignIdHex,      // campaign_id
       commitmentHash,     // poseidon(LANTERN_DONATE:V1, campaign_id, secret)
       "0x0",              // note_id (unused)
@@ -52,10 +66,19 @@ const donateActions: STRK20_ACTION[] = [
 const { transaction_hash } = await account.strk20InvokeTransaction(donateActions)
 ```
 
-The pool withdraws `donationAmount` of `tokenAddress` to the Lantern contract,
-then calls `privacy_invoke`. The contract measures the actual balance delta,
-increments the public tally, stores the commitment, and returns an empty
-`Span<OpenNoteDeposit>` — funds stay parked.
+> **OPEN QUESTION — verify by dry-run before relying on it.**
+> The swap example in the docs shows only `transfer(OPEN)` + `invoke` with no
+> explicit `withdraw`, yet states "the pool withdraws `amountIn` to your helper".
+> That implies the pool may infer the input leg from calldata position instead.
+> The two candidate shapes are:
+>
+> - **A (used above):** explicit `withdraw` → `invoke`
+> - **B:** `invoke` only, pool infers token+amount from leading calldata
+>
+> `buildDonateActions()` in `app/src/lib/actions.ts` is the single place this is
+> decided, so flipping it is a one-line change. Resolve with
+> `strk20PrepareInvoke(actions, true)` as soon as a shielded USDC balance exists.
+
 
 ---
 
