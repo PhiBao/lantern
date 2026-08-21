@@ -16,15 +16,35 @@ export const LANTERN_ADDRESS =
 export const POOL_ADDRESS =
   "0x040337b1af3c663e86e333bab5a4b28da8d4652a15a69beee2b677776ffe812a";
 
-/** Tokens Lantern supports. USDC only for MVP. */
+/**
+ * Tokens Lantern supports.
+ *
+ * Starknet has two live USDC deployments and they are NOT interchangeable:
+ *
+ * - USDC  (native, ByteArray metadata) — 0x033068f6…  ← default for new campaigns
+ * - USDC.e (older bridged, felt252 short-string metadata) — 0x053c9125…
+ *
+ * A campaign's token is fixed at creation, so a balance in one cannot fund a
+ * campaign denominated in the other. Both are listed so existing campaigns keep
+ * rendering correct symbols and decimals.
+ */
 export const TOKENS = {
   USDC: {
     address:
-      "0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8",
+      "0x033068f6539f8e6e6b131e6b2b814e6c34a5224bc66947c47dab9dfee93b35fb",
     symbol: "USDC",
     decimals: 6,
   },
+  USDCe: {
+    address:
+      "0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8",
+    symbol: "USDC.e",
+    decimals: 6,
+  },
 } as const;
+
+/** The token new campaigns are denominated in. */
+export const DEFAULT_TOKEN = TOKENS.USDC;
 
 export type TokenKey = keyof typeof TOKENS;
 
