@@ -5,11 +5,20 @@ node_modules/
 app/.next/
 app/out/
 contracts/target/
+contracts/.snfoundry_cache/
 
-# Environment
+# Environment & secrets — never commit
 .env
 .env.local
 .env.*.local
+*.pem
+*.key
+**/keystore*.json
+**/starknet_accounts/
+
+# sncast local profile (contains account name + rpc, keep local)
+snfoundry.toml
+contracts/snfoundry.toml
 
 # IDE
 .vscode/
