@@ -38,7 +38,7 @@ If the goal is met, the organizer privately claims the funds. If not, each donor
 ```
 
 - **Lantern contract** — a stateful `privacy_invoke` anonymizer that holds campaign state, tallies, and refund commitments.
-- **Frontend** — a public campaign page (no wallet needed to view) plus give/claim flows via the Starknet Wallet API.
+- **Frontend** — public campaign pages (no wallet needed to view), plus create / give / claim flows via the Starknet Wallet API.
 - **No backend** — every number on screen comes from an on-chain view call. No database, no server state, no trust assumption beyond the contract itself.
 
 ## Stack
@@ -73,6 +73,30 @@ After the deadline, if the goal was not met, a donor proves knowledge of their s
 ### Claim Payout (private)
 
 After the deadline, if the goal was met, the organizer proves knowledge of their payout secret. The contract sends all raised funds back to the pool as a single `OpenNoteDeposit` for the organizer.
+
+## What's built
+
+| Flow | Route | Status |
+|---|---|---|
+| Browse campaigns | `/` | live |
+| Public campaign page | `/c/[id]` | live |
+| Create a campaign | `/new` | live |
+| Give privately | `/c/[id]` (active) | live, verified on mainnet |
+| Claim refund | `/c/[id]` (goal missed) | live |
+| Claim payout | `/c/[id]` (goal met) | live |
+
+Nothing is behind a login and nothing needs a wallet until you act.
+
+## Verified on mainnet
+
+| What | Transaction |
+|---|---|
+| Shield into the pool | [`0x06a7a343…625b9`](https://voyager.online/tx/0x06a7a343054626a37f9eb81d5f71516cfe807a37c8a83724070555b2037625b9) |
+| Private donation | [`0x0449e60d…620689`](https://voyager.online/tx/0x0449e60d08650a7bd6a187aacf74112a3c53020017851cd3c0a1d31745620689) |
+
+The donation moved campaign #2 from `0` to `0.300000` with `backer_count: 1`,
+and left the Lantern contract holding exactly `0.3 USDC` — the measured delta,
+not a number the caller supplied.
 
 ## Security
 

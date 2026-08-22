@@ -15,6 +15,12 @@ import { rpcUrl } from "./config";
 
 export type Strk20Account = {
   address: string;
+  /** Plain Starknet call — used for create_campaign, which bypasses the pool. */
+  execute: (calls: {
+    contractAddress: string;
+    entrypoint: string;
+    calldata: string[];
+  }[]) => Promise<{ transaction_hash: string }>;
   strk20Balances: (tokens: string[]) => Promise<STRK20_BALANCE_ENTRY[]>;
   strk20PrepareInvoke: (
     actions: STRK20_ACTION[],
@@ -114,6 +120,8 @@ export async function connectWallet(): Promise<ConnectResult> {
     walletName,
     account: {
       address: account.address,
+      execute: (calls) =>
+        account.execute(calls) as Promise<{ transaction_hash: string }>,
       strk20Balances: (tokens) => account.strk20Balances(tokens as never),
       strk20PrepareInvoke: (actions, simulate) =>
         account.strk20PrepareInvoke(actions, simulate),

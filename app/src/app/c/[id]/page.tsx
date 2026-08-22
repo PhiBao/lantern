@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { CampaignArt } from "@/components/CampaignArt";
 import { LiveCampaign } from "@/components/LiveCampaign";
+import { ClaimSheet } from "@/components/ClaimSheet";
 import { campaignStatus, fetchCampaign } from "@/lib/lantern";
 import { formatAmount, formatDeadline, shortAddress, timeRemaining } from "@/lib/format";
 import { LANTERN_ADDRESS, VOYAGER_CONTRACT } from "@/lib/config";
@@ -68,8 +69,36 @@ export default async function CampaignPage({ params }: Props) {
         />
 
         <div className="mt-6">
-          {status === "failed" && <RefundNotice />}
-          {status === "succeeded_unclaimed" && <GoalMetNotice />}
+          {status === "failed" && (
+            <>
+              <RefundNotice />
+              <div className="mt-4">
+                <ClaimSheet
+                  campaignId={campaign.id}
+                  token={campaign.token}
+                  tokenSymbol={campaign.tokenSymbol}
+                  tokenDecimals={campaign.tokenDecimals}
+                  amount={campaign.raised}
+                  kind="refund"
+                />
+              </div>
+            </>
+          )}
+          {status === "succeeded_unclaimed" && (
+            <>
+              <GoalMetNotice />
+              <div className="mt-4">
+                <ClaimSheet
+                  campaignId={campaign.id}
+                  token={campaign.token}
+                  tokenSymbol={campaign.tokenSymbol}
+                  tokenDecimals={campaign.tokenDecimals}
+                  amount={campaign.raised}
+                  kind="payout"
+                />
+              </div>
+            </>
+          )}
           {status === "succeeded_claimed" && <FundedNotice />}
         </div>
       </section>
