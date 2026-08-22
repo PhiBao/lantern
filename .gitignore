@@ -30,3 +30,6 @@ Thumbs.db
 
 # Vercel
 .vercel/
+
+# Local demo notes — not part of the submission
+DEMO-SCRIPT.md
