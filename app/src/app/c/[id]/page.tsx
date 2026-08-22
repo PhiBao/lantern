@@ -1,8 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { CampaignArt } from "@/components/CampaignArt";
-import { ProgressBar } from "@/components/ProgressBar";
-import { GiveSheet } from "@/components/GiveSheet";
+import { LiveCampaign } from "@/components/LiveCampaign";
 import { campaignStatus, fetchCampaign } from "@/lib/lantern";
 import { formatAmount, formatDeadline, shortAddress, timeRemaining } from "@/lib/format";
 import { LANTERN_ADDRESS, VOYAGER_CONTRACT } from "@/lib/config";
@@ -57,25 +56,18 @@ export default async function CampaignPage({ params }: Props) {
       </header>
 
       <section className="mt-8 rounded-xl border border-stone-200 p-5 dark:border-stone-800">
-        <ProgressBar
-          raised={campaign.raised}
+        <LiveCampaign
+          campaignId={campaign.id}
+          token={campaign.token}
+          tokenSymbol={campaign.tokenSymbol}
+          tokenDecimals={campaign.tokenDecimals}
           goal={campaign.goal}
-          decimals={campaign.tokenDecimals}
-          symbol={campaign.tokenSymbol}
-          backerCount={campaign.backerCount}
+          initialRaised={campaign.raised.toString()}
+          initialBackerCount={campaign.backerCount}
+          active={status === "active"}
         />
 
         <div className="mt-6">
-          {status === "active" && (
-            <GiveSheet
-              campaignId={campaign.id}
-              token={campaign.token}
-              tokenSymbol={campaign.tokenSymbol}
-              tokenDecimals={campaign.tokenDecimals}
-              goal={campaign.goal}
-              raised={campaign.raised}
-            />
-          )}
           {status === "failed" && <RefundNotice />}
           {status === "succeeded_unclaimed" && <GoalMetNotice />}
           {status === "succeeded_claimed" && <FundedNotice />}

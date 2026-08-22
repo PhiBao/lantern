@@ -37,6 +37,7 @@ export function GiveSheet({
   tokenDecimals,
   goal,
   raised,
+  onDonated,
 }: {
   campaignId: number;
   token: string;
@@ -44,6 +45,8 @@ export function GiveSheet({
   tokenDecimals: number;
   goal: bigint;
   raised: bigint;
+  /** Called after a confirmed donation so the page can re-read the tally. */
+  onDonated?: () => void;
 }) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [account, setAccount] = useState<Strk20Account | null>(null);
@@ -140,6 +143,13 @@ export function GiveSheet({
       setTxHash(transaction_hash);
       setRecoveryCode(secretToRecoveryCode(secret));
       setPhase("done");
+
+      // Pull the new tally in without making the user reload.
+      //
+      // The tally is the whole point of the product, so it moving is the
+      // feedback that matters. It lags the transaction by a block or two, so we
+      // re-read a few times with a backoff rather than once and hoping.
+      onDonated?.();
     } catch (e) {
       const m = e instanceof Error ? e.message : String(e);
       const up = m.toUpperCase();
@@ -163,7 +173,7 @@ export function GiveSheet({
       }
       setPhase("error");
     }
-  }, [account, amountValid, parsed, token, campaignId]);
+  }, [account, amountValid, parsed, token, campaignId, onDonated]);
 
   // ---------- Success ----------
   if (phase === "done" && txHash) {

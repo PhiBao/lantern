@@ -32,7 +32,13 @@ export const OP = {
 
 export type DonateShape = "withdraw-then-invoke" | "invoke-only";
 
-/** Active shape. Flip to "invoke-only" if the dry run rejects the default. */
+/**
+ * Active shape — CONFIRMED against the live mainnet pool.
+ *
+ * Donate tx 0x0449e60d...620689 succeeded with withdraw-then-invoke and moved
+ * campaign #2's tally from 0 to 0.300000 with backer_count 1. Reading B
+ * (invoke-only) is retained for reference but is not the wire format.
+ */
 export const DONATE_SHAPE: DonateShape = "withdraw-then-invoke";
 
 function toFelt(v: bigint | number | string): string {
