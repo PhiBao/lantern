@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { buildDonateActions, verifyDonateShape } from "@/lib/actions";
+import { buildDonateActions } from "@/lib/actions";
 import { generateSecret, secretToRecoveryCode } from "@/lib/commitments";
 import { formatAmount, parseAmount } from "@/lib/format";
 import { VOYAGER_TX } from "@/lib/config";
@@ -17,7 +17,7 @@ type Phase =
   | "idle"
   | "connecting"
   | "ready"
-  | "checking"
+
   | "confirming"
   | "submitting"
   | "done"
@@ -103,30 +103,19 @@ export function GiveSheet({
     if (!account || !amountValid) return;
 
     setError(null);
-    setPhase("checking");
+    setPhase("confirming");
 
     const secret = generateSecret();
 
     try {
-      // Resolve the action shape against the live pool before signing.
-      const { shape, errors } = await verifyDonateShape(account, {
-        token,
-        amount: parsed!,
-        campaignId,
-        secret,
-      });
-
-      if (!shape) {
-        setError({
-          title: "The pool rejected this donation",
-          body:
-            Object.values(errors)[0] ??
-            "Neither action shape was accepted. This is a wiring problem, not something you did.",
-        });
-        setPhase("error");
-        return;
-      }
-
+      // No dry run here on purpose.
+      //
+      // strk20PrepareInvoke triggers its own wallet prompt, so running it before
+      // strk20InvokeTransaction made users approve twice for one donation. The
+      // dry run existed to resolve which action shape the pool accepts; that is
+      // now settled empirically on mainnet (see lib/actions.ts), so the cost no
+      // longer buys anything. verifyDonateShape() remains exported for
+      // diagnostics if the protocol changes.
       setPhase("confirming");
 
       const actions = buildDonateActions({
@@ -134,7 +123,6 @@ export function GiveSheet({
         amount: parsed!,
         campaignId,
         secret,
-        shape,
       });
 
       setPhase("submitting");
@@ -270,7 +258,7 @@ export function GiveSheet({
     );
   }
 
-  const busy = phase === "checking" || phase === "confirming" || phase === "submitting";
+  const busy = phase === "confirming" || phase === "submitting";
 
   // ---------- Connected: amount entry ----------
   return (
@@ -344,13 +332,11 @@ export function GiveSheet({
         disabled={!amountValid || overBalance || busy || notRegistered}
         className="w-full rounded-lg bg-stone-900 px-4 py-3 font-medium text-white transition-colors hover:bg-stone-700 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600 dark:bg-stone-100 dark:text-stone-900 dark:hover:bg-white"
       >
-        {phase === "checking"
-          ? "Checking…"
-          : phase === "confirming"
-            ? "Confirm in your wallet…"
-            : phase === "submitting"
-              ? "Proving and sending…"
-              : "Give"}
+        {phase === "confirming"
+          ? "Confirm in your wallet…"
+          : phase === "submitting"
+            ? "Proving and sending…"
+            : "Give"}
       </button>
 
       <p aria-live="polite" className="text-center text-xs text-stone-500 dark:text-stone-500">
