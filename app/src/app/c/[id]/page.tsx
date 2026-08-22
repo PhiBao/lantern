@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { CampaignArt } from "@/components/CampaignArt";
 import { ProgressBar } from "@/components/ProgressBar";
-import { HonestyPanel } from "@/components/HonestyPanel";
+import { GiveSheet } from "@/components/GiveSheet";
 import { campaignStatus, fetchCampaign } from "@/lib/lantern";
 import { formatAmount, formatDeadline, shortAddress, timeRemaining } from "@/lib/format";
 import { LANTERN_ADDRESS, VOYAGER_CONTRACT } from "@/lib/config";
@@ -66,16 +66,27 @@ export default async function CampaignPage({ params }: Props) {
         />
 
         <div className="mt-6">
-          {status === "active" && <GiveCta />}
+          {status === "active" && (
+            <GiveSheet
+              campaignId={campaign.id}
+              token={campaign.token}
+              tokenSymbol={campaign.tokenSymbol}
+              tokenDecimals={campaign.tokenDecimals}
+              goal={campaign.goal}
+              raised={campaign.raised}
+            />
+          )}
           {status === "failed" && <RefundNotice />}
           {status === "succeeded_unclaimed" && <GoalMetNotice />}
           {status === "succeeded_claimed" && <FundedNotice />}
         </div>
       </section>
 
-      <div className="mt-4">
-        <HonestyPanel />
-      </div>
+      {status === "active" && (
+        <p className="mt-4 text-center text-xs text-stone-500 dark:text-stone-500">
+          No account needed to read this page. A wallet is only required to give.
+        </p>
+      )}
 
       <dl className="mt-8 grid grid-cols-2 gap-x-6 gap-y-4 text-sm">
         <Detail label="Deadline" value={formatDeadline(campaign.deadline)} />
@@ -127,27 +138,6 @@ function Detail({
       >
         {value}
       </dd>
-    </div>
-  );
-}
-
-/**
- * Placeholder until Task 8 wires the wallet.
- * Rendered as a disabled control with an explanation rather than a dead button.
- */
-function GiveCta() {
-  return (
-    <div>
-      <button
-        type="button"
-        disabled
-        className="w-full rounded-lg bg-stone-900 px-4 py-3 font-medium text-white disabled:cursor-not-allowed disabled:opacity-40 dark:bg-stone-100 dark:text-stone-900"
-      >
-        Give privately
-      </button>
-      <p className="mt-2 text-center text-xs text-stone-500 dark:text-stone-500">
-        Requires a privacy-enabled wallet. Wiring in progress.
-      </p>
     </div>
   );
 }
