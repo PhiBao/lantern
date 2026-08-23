@@ -86,3 +86,7 @@ export function rpcUrl(): string {
 
 export const VOYAGER_TX = "https://voyager.online/tx/";
 export const VOYAGER_CONTRACT = "https://voyager.online/contract/";
+
+/** Public source. Used for the honest-privacy links. */
+export const REPO_URL = "https://github.com/PhiBao/lantern";
+export const SECURITY_MD_URL = `${REPO_URL}/blob/main/SECURITY.md`;

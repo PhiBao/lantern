@@ -90,7 +90,16 @@ export function HonestyPanel({
           )}
 
           <p className="mt-3 text-xs text-stone-500 dark:text-stone-500">
-            Lantern is unaudited hackathon software. Full detail in SECURITY.md.
+            Lantern is unaudited hackathon software.{" "}
+            <a
+              href="/security"
+              target="_blank"
+              rel="noreferrer noopener"
+              className="underline decoration-stone-400 underline-offset-2 hover:text-stone-700 dark:decoration-stone-600 dark:hover:text-stone-300"
+            >
+              Read the full privacy and security notes
+            </a>
+            .
           </p>
         </div>
       )}

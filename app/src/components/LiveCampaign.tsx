@@ -22,6 +22,7 @@ export function LiveCampaign({
   initialRaised,
   initialBackerCount,
   active,
+  shapeOverride,
 }: {
   campaignId: number;
   token: string;
@@ -31,6 +32,7 @@ export function LiveCampaign({
   initialRaised: string;
   initialBackerCount: number;
   active: boolean;
+  shapeOverride?: "withdraw-then-invoke" | "invoke-only";
 }) {
   const [raised, setRaised] = useState<bigint>(BigInt(initialRaised));
   const [backerCount, setBackerCount] = useState(initialBackerCount);
@@ -109,6 +111,7 @@ export function LiveCampaign({
             goal={goal}
             raised={raised}
             onDonated={resync}
+            shapeOverride={shapeOverride}
           />
         </div>
       )}

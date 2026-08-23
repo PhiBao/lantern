@@ -9,7 +9,10 @@ import { LANTERN_ADDRESS, VOYAGER_CONTRACT } from "@/lib/config";
 
 export const dynamic = "force-dynamic";
 
-type Props = { params: Promise<{ id: string }> };
+type Props = {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ shape?: string }>;
+};
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
@@ -25,8 +28,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return { title, description, openGraph: { title, description } };
 }
 
-export default async function CampaignPage({ params }: Props) {
+export default async function CampaignPage({ params, searchParams }: Props) {
   const { id } = await params;
+  const { shape } = await searchParams;
+  const shapeOverride =
+    shape === "invoke-only" || shape === "withdraw-then-invoke" ? shape : undefined;
   const n = Number(id);
   if (!Number.isInteger(n) || n < 1) notFound();
 
@@ -66,7 +72,20 @@ export default async function CampaignPage({ params }: Props) {
           initialRaised={campaign.raised.toString()}
           initialBackerCount={campaign.backerCount}
           active={status === "active"}
+          shapeOverride={shapeOverride}
         />
+
+        {status === "active" && campaign.raised >= campaign.goal && (
+          <p className="mt-5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm dark:border-emerald-900 dark:bg-emerald-950/40">
+            <strong className="font-medium text-emerald-900 dark:text-emerald-200">
+              Goal reached.
+            </strong>{" "}
+            <span className="text-emerald-800 dark:text-emerald-300/80">
+              The organizer can collect once the deadline passes. Until then this
+              campaign stays open to further giving.
+            </span>
+          </p>
+        )}
 
         <div className="mt-6">
           {status === "failed" && (

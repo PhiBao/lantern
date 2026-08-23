@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { buildDonateActions } from "@/lib/actions";
+import { buildDonateActions, type DonateShape } from "@/lib/actions";
 import { generateSecret, secretToRecoveryCode } from "@/lib/commitments";
 import { formatAmount, parseAmount } from "@/lib/format";
 import { VOYAGER_TX } from "@/lib/config";
@@ -38,6 +38,7 @@ export function GiveSheet({
   goal,
   raised,
   onDonated,
+  shapeOverride,
 }: {
   campaignId: number;
   token: string;
@@ -47,6 +48,11 @@ export function GiveSheet({
   raised: bigint;
   /** Called after a confirmed donation so the page can re-read the tally. */
   onDonated?: () => void;
+  /**
+   * Force a specific action shape. Only for diagnosing wallet behaviour —
+   * `withdraw-then-invoke` is the proven default.
+   */
+  shapeOverride?: DonateShape;
 }) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [account, setAccount] = useState<Strk20Account | null>(null);
@@ -123,6 +129,7 @@ export function GiveSheet({
         amount: parsed!,
         campaignId,
         secret,
+        shape: shapeOverride,
       });
 
       setPhase("submitting");
@@ -161,7 +168,7 @@ export function GiveSheet({
       }
       setPhase("error");
     }
-  }, [account, amountValid, parsed, token, campaignId, onDonated]);
+  }, [account, amountValid, parsed, token, campaignId, onDonated, shapeOverride]);
 
   // ---------- Success ----------
   if (phase === "done" && txHash) {
@@ -272,6 +279,13 @@ export function GiveSheet({
         )}
       </div>
 
+      {raised >= goal && (
+        <p className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200">
+          <strong className="font-medium">Goal reached.</strong> Giving stays open
+          until the deadline — anything extra goes to the same cause.
+        </p>
+      )}
+
       {notRegistered && (
         <p role="status" className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-200">
           Your wallet isn&apos;t registered with the privacy pool yet. Shield any
@@ -336,7 +350,9 @@ export function GiveSheet({
           ? "Confirm in your wallet…"
           : phase === "submitting"
             ? "Proving and sending…"
-            : "Give"}
+            : raised >= goal
+              ? "Add to it"
+              : "Give"}
       </button>
 
       <p aria-live="polite" className="text-center text-xs text-stone-500 dark:text-stone-500">

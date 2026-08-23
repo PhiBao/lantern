@@ -203,3 +203,39 @@ function computePayoutCommitment(campaignId: number, secret: string): string {
 4. **Measured-delta accounting** in the contract independently verifies what arrived,
    ignoring the caller-supplied `amount`. This prevents tally inflation if the pool
    somehow delivered a different amount than declared.
+
+---
+
+## Wallet prompts per donation
+
+A donation built as `withdraw` + `invoke` produces **two approval prompts in
+Ready**, one per action, even though both travel in a single
+`strk20InvokeTransaction` call.
+
+Ruled out first: the pre-flight `strk20PrepareInvoke` dry run also raises its own
+prompt, and removing it did not eliminate the second one. Verified against the
+deployed bundle — the string `"Neither action shape was accepted"` is absent from
+production JS, confirming the dry run is not on the donate path.
+
+So the remaining cause is the action count. That makes shape B worth testing:
+
+| Shape | Actions | Prompts | Status |
+|---|---|---|---|
+| A `withdraw-then-invoke` | 2 | 2 | **proven on mainnet** |
+| B `invoke-only` | 1 | 1 expected | untested |
+
+Shape B is plausible because the official swap example passes only
+`transfer(OPEN)` + `invoke` while stating "the pool withdraws `amountIn` to your
+helper" — implying the pool reads the input leg from leading calldata. Lantern's
+`privacy_invoke` already leads with `(token, amount, …)`, matching that
+convention.
+
+To test without risk, append `?shape=invoke-only` to a campaign URL:
+
+```
+https://app-wine-seven-35.vercel.app/c/6?shape=invoke-only
+```
+
+If the pool rejects it the whole transaction reverts atomically and no funds
+move, so the downside is a failed transaction rather than a loss. If it succeeds
+with a single prompt, flip `DONATE_SHAPE` in `app/src/lib/actions.ts`.

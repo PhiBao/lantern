@@ -56,6 +56,22 @@ export default function RootLayout({
             </p>
             <p className="mt-2">
               <a
+                href="/security"
+                className="underline decoration-stone-300 underline-offset-4 hover:text-stone-800 dark:decoration-stone-700 dark:hover:text-stone-300"
+              >
+                Privacy &amp; security
+              </a>
+              <span className="mx-2 text-stone-300 dark:text-stone-700">·</span>
+              <a
+                href="https://github.com/PhiBao/lantern"
+                className="underline decoration-stone-300 underline-offset-4 hover:text-stone-800 dark:decoration-stone-700 dark:hover:text-stone-300"
+                target="_blank"
+                rel="noreferrer noopener"
+              >
+                Source
+              </a>
+              <span className="mx-2 text-stone-300 dark:text-stone-700">·</span>
+              <a
                 href="https://github.com/starkience/strk20-hackathon"
                 className="underline decoration-stone-300 underline-offset-4 hover:text-stone-800 dark:decoration-stone-700 dark:hover:text-stone-300"
                 target="_blank"
