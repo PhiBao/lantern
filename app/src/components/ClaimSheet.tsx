@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { buildClaimActions } from "@/lib/actions";
 import { recoveryCodeToSecret } from "@/lib/commitments";
 import { formatAmount } from "@/lib/format";
@@ -45,6 +45,9 @@ export function ClaimSheet({
   const [code, setCode] = useState("");
   const [error, setError] = useState<{ title: string; body: string } | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
+  /** A second wallet request is how duplicate prompts appear, so one claim at a
+   *  time. */
+  const inFlight = useRef(false);
 
   const isRefund = kind === "refund";
   const secret = recoveryCodeToSecret(code);
@@ -65,6 +68,8 @@ export function ClaimSheet({
 
   const submit = useCallback(async () => {
     if (!account || !secret) return;
+    if (inFlight.current) return;
+    inFlight.current = true;
     setError(null);
     setPhase("submitting");
 
@@ -141,6 +146,8 @@ export function ClaimSheet({
         setError({ title: "The claim didn't go through", body: m });
       }
       setPhase("error");
+    } finally {
+      inFlight.current = false;
     }
   }, [account, secret, token, campaignId, kind, isRefund]);
 
@@ -249,6 +256,14 @@ export function ClaimSheet({
           </p>
         )}
       </div>
+
+      <p className="rounded-md border border-stone-200 bg-stone-50 px-3 py-2 text-xs leading-relaxed text-stone-600 dark:border-stone-800 dark:bg-stone-900/50 dark:text-stone-400">
+        <strong className="font-medium text-stone-800 dark:text-stone-200">
+          Your wallet will ask twice, one prompt after the other.
+        </strong>{" "}
+        Once to open a slot for the incoming funds, and once to release them from
+        the contract. The second is queued behind the first — it is not a repeat.
+      </p>
 
       <button
         type="button"

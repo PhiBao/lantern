@@ -59,6 +59,12 @@ export function GiveSheet({
   const [txHash, setTxHash] = useState<string | null>(null);
   const [recoveryCode, setRecoveryCode] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  /** What the last successful donation sent, so the balance can be adjusted
+   *  locally without asking the wallet. */
+  const [lastSent, setLastSent] = useState<bigint | null>(null);
+  /** Guards against a second submit while one is already in flight — a second
+   *  wallet request is exactly how duplicate prompts get created. */
+  const inFlight = useRef(false);
 
   const amountRef = useRef<HTMLInputElement>(null);
   const remaining = goal > raised ? goal - raised : 0n;
@@ -100,8 +106,27 @@ export function GiveSheet({
     if (phase === "ready") amountRef.current?.focus();
   }, [phase]);
 
+  /**
+   * Force the field to match React state on mount.
+   *
+   * Browsers restore form values on reload and back-navigation, and they do it
+   * before hydration. The restored text lands in the DOM while React still
+   * believes the value is empty, so the field shows an old amount that cannot be
+   * edited normally and the Give button stays disabled because state says there
+   * is no amount. Revisiting a campaign link days later hits this.
+   *
+   * `autoComplete="off"` is not sufficient — restoration is separate from
+   * autofill — so the DOM is corrected explicitly.
+   */
+  useEffect(() => {
+    const el = amountRef.current;
+    if (el && el.value !== "") el.value = "";
+  }, []);
+
   const submit = useCallback(async () => {
     if (!account || !amountValid) return;
+    if (inFlight.current) return;
+    inFlight.current = true;
 
     setError(null);
     setPhase("confirming");
@@ -149,6 +174,7 @@ export function GiveSheet({
 
       setTxHash(winner.kind === "wallet" ? winner.hash : null);
       setRecoveryCode(secretToRecoveryCode(secret));
+      setLastSent(parsed!);
       setPhase("done");
 
       // Refresh the tally on the page behind the sheet.
@@ -180,30 +206,35 @@ export function GiveSheet({
         setError({ title: "The donation didn't go through", body: m });
       }
       setPhase("error");
+    } finally {
+      inFlight.current = false;
     }
   }, [account, amountValid, parsed, token, campaignId, onDonated, raised]);
 
   /**
    * Start a fresh donation after a successful one.
    *
-   * Clears the previous amount rather than leaving it prefilled — reusing the
-   * last figure by accident is a real way to give twice what you meant to. Also
-   * re-reads the shielded balance, which is now lower, so the max is accurate
-   * and the "more than your balance" guard still works.
+   * Deliberately makes NO wallet call. Reading the shielded balance goes through
+   * the wallet, and any such request makes the wallet flush approvals still
+   * sitting in its queue — which surfaced a stale prompt carrying the previous
+   * amount, seconds after the user had only pressed "Give again". Instead the
+   * balance is decremented locally by what was just sent, which is exact.
    */
-  const giveAgain = useCallback(async () => {
+  const giveAgain = useCallback(() => {
+    setShielded((prev) =>
+      prev !== null && lastSent !== null && prev >= lastSent
+        ? prev - lastSent
+        : prev,
+    );
+    setLastSent(null);
     setAmountInput("");
+    if (amountRef.current) amountRef.current.value = "";
     setTxHash(null);
     setRecoveryCode(null);
     setCopied(false);
     setError(null);
     setPhase("ready");
-
-    if (account) {
-      const bal = await readShieldedBalance(account, token);
-      if (bal.ok) setShielded(bal.balance);
-    }
-  }, [account, token]);
+  }, [lastSent]);
 
   // ---------- Success ----------
   if (phase === "done") {
@@ -382,6 +413,65 @@ export function GiveSheet({
             ? `${formatAmount(remaining, tokenDecimals, 6)} ${tokenSymbol} still needed to reach the goal.`
             : "This campaign has already reached its goal — extra still helps."}
         </p>
+
+        {/*
+          Preset amounts.
+
+          Typing is not always available or reliable — mobile wallet browsers and
+          restored form state both interfere with it — so every amount is
+          reachable without the keyboard. These write straight to state, which
+          also resets any stale value the browser left in the field.
+        */}
+        <div className="mt-2.5 flex flex-wrap items-center gap-2">
+          {["0.1", "0.5", "1", "5"].map((preset) => {
+            const p = parseAmount(preset, tokenDecimals);
+            const affordable = p !== null && (shielded === null || p <= shielded);
+            return (
+              <button
+                key={preset}
+                type="button"
+                onClick={() => setAmountInput(preset)}
+                disabled={busy || !affordable}
+                aria-pressed={amountInput === preset}
+                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600 disabled:opacity-30 ${
+                  amountInput === preset
+                    ? "bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900"
+                    : "border border-stone-300 text-stone-700 hover:bg-stone-100 dark:border-stone-700 dark:text-stone-300 dark:hover:bg-stone-800"
+                }`}
+              >
+                {preset}
+              </button>
+            );
+          })}
+
+          {shielded !== null && shielded > 0n && (
+            <button
+              type="button"
+              onClick={() =>
+                setAmountInput(formatAmount(shielded, tokenDecimals, tokenDecimals))
+              }
+              disabled={busy}
+              className="rounded-full border border-stone-300 px-3 py-1 text-xs font-medium text-stone-700 transition-colors hover:bg-stone-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600 disabled:opacity-30 dark:border-stone-700 dark:text-stone-300 dark:hover:bg-stone-800"
+            >
+              Max
+            </button>
+          )}
+
+          {amountInput !== "" && (
+            <button
+              type="button"
+              onClick={() => {
+                setAmountInput("");
+                if (amountRef.current) amountRef.current.value = "";
+                amountRef.current?.focus();
+              }}
+              disabled={busy}
+              className="rounded-full px-2 py-1 text-xs font-medium text-stone-500 underline decoration-stone-300 underline-offset-2 hover:text-stone-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600 dark:text-stone-500 dark:hover:text-stone-300"
+            >
+              Clear
+            </button>
+          )}
+        </div>
 
         {amountInput !== "" && !amountValid && (
           <p role="alert" className="mt-1.5 text-xs text-red-600 dark:text-red-400">
