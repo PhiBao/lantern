@@ -93,7 +93,12 @@ export async function fetchCampaigns(): Promise<Campaign[]> {
 export function campaignStatus(c: Campaign, nowSeconds: number): CampaignStatus {
   const ended = nowSeconds > c.deadline;
   const met = c.raised >= c.goal;
+
+  // Giving stays open past the goal on purpose — overfunding is normal and the
+  // extra goes to the same cause. Payout waits for the deadline either way,
+  // which the contract enforces.
   if (!ended) return "active";
+
   if (!met) return "failed";
   return c.payoutClaimed ? "succeeded_claimed" : "succeeded_unclaimed";
 }

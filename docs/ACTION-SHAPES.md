@@ -222,7 +222,18 @@ So the remaining cause is the action count. That makes shape B worth testing:
 | Shape | Actions | Prompts | Status |
 |---|---|---|---|
 | A `withdraw-then-invoke` | 2 | 2 | **proven on mainnet** |
-| B `invoke-only` | 1 | 1 expected | untested |
+| B `invoke-only` | 1 | — | **rejected: `INVALID_REQUEST_PAYLOAD`** |
+
+**Tested and settled.** Shape B was attempted against the live pool and rejected
+outright with `INVALID_REQUEST_PAYLOAD`. The pool does *not* infer the input leg
+from leading calldata, so the swap example in the docs must rely on something
+else — an explicit `withdraw` is required for a helper that parks funds.
+
+Consequence: **two wallet approvals per donation is inherent**, not a defect to
+fix. Ready prompts once per STRK20 action and a donation needs two. The product
+now says so up front in the give flow rather than letting it read as a bug. The
+`?shape=` override has been removed, since the only alternative is invalid and
+exposing it just produced confusing failures.
 
 Shape B is plausible because the official swap example passes only
 `transfer(OPEN)` + `invoke` while stating "the pool withdraws `amountIn` to your

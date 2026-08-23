@@ -9,10 +9,7 @@ import { LANTERN_ADDRESS, VOYAGER_CONTRACT } from "@/lib/config";
 
 export const dynamic = "force-dynamic";
 
-type Props = {
-  params: Promise<{ id: string }>;
-  searchParams: Promise<{ shape?: string }>;
-};
+type Props = { params: Promise<{ id: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
@@ -28,11 +25,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return { title, description, openGraph: { title, description } };
 }
 
-export default async function CampaignPage({ params, searchParams }: Props) {
+export default async function CampaignPage({ params }: Props) {
   const { id } = await params;
-  const { shape } = await searchParams;
-  const shapeOverride =
-    shape === "invoke-only" || shape === "withdraw-then-invoke" ? shape : undefined;
   const n = Number(id);
   if (!Number.isInteger(n) || n < 1) notFound();
 
@@ -72,7 +66,6 @@ export default async function CampaignPage({ params, searchParams }: Props) {
           initialRaised={campaign.raised.toString()}
           initialBackerCount={campaign.backerCount}
           active={status === "active"}
-          shapeOverride={shapeOverride}
         />
 
         {status === "active" && campaign.raised >= campaign.goal && (

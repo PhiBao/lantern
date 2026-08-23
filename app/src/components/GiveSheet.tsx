@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { buildDonateActions, type DonateShape } from "@/lib/actions";
+import { buildDonateActions } from "@/lib/actions";
 import { generateSecret, secretToRecoveryCode } from "@/lib/commitments";
 import { formatAmount, parseAmount } from "@/lib/format";
 import { VOYAGER_TX } from "@/lib/config";
@@ -38,7 +38,6 @@ export function GiveSheet({
   goal,
   raised,
   onDonated,
-  shapeOverride,
 }: {
   campaignId: number;
   token: string;
@@ -48,11 +47,6 @@ export function GiveSheet({
   raised: bigint;
   /** Called after a confirmed donation so the page can re-read the tally. */
   onDonated?: () => void;
-  /**
-   * Force a specific action shape. Only for diagnosing wallet behaviour —
-   * `withdraw-then-invoke` is the proven default.
-   */
-  shapeOverride?: DonateShape;
 }) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [account, setAccount] = useState<Strk20Account | null>(null);
@@ -129,7 +123,6 @@ export function GiveSheet({
         amount: parsed!,
         campaignId,
         secret,
-        shape: shapeOverride,
       });
 
       setPhase("submitting");
@@ -163,12 +156,17 @@ export function GiveSheet({
           title: "Wallet not registered with the pool",
           body: "Shield any amount once in your wallet — that registers you — then try again.",
         });
+      } else if (up.includes("INVALID_REQUEST_PAYLOAD")) {
+        setError({
+          title: "The pool rejected the request",
+          body: "This is a wiring problem on our side, not something you did. Nothing was sent and your funds are untouched.",
+        });
       } else {
         setError({ title: "The donation didn't go through", body: m });
       }
       setPhase("error");
     }
-  }, [account, amountValid, parsed, token, campaignId, onDonated, shapeOverride]);
+  }, [account, amountValid, parsed, token, campaignId, onDonated]);
 
   // ---------- Success ----------
   if (phase === "done" && txHash) {
@@ -340,6 +338,15 @@ export function GiveSheet({
 
       <HonestyPanel />
 
+      <p className="rounded-md border border-stone-200 bg-stone-50 px-3 py-2 text-xs leading-relaxed text-stone-600 dark:border-stone-800 dark:bg-stone-900/50 dark:text-stone-400">
+        <strong className="font-medium text-stone-800 dark:text-stone-200">
+          Your wallet will ask twice.
+        </strong>{" "}
+        Once to move the funds out of your shielded balance, and once to record
+        the donation against this campaign. Both belong to the same transaction —
+        approve both, and nothing moves unless both go through.
+      </p>
+
       <button
         type="button"
         onClick={submit}
@@ -347,7 +354,7 @@ export function GiveSheet({
         className="w-full rounded-lg bg-stone-900 px-4 py-3 font-medium text-white transition-colors hover:bg-stone-700 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600 dark:bg-stone-100 dark:text-stone-900 dark:hover:bg-white"
       >
         {phase === "confirming"
-          ? "Confirm in your wallet…"
+          ? "Approve both steps in your wallet…"
           : phase === "submitting"
             ? "Proving and sending…"
             : raised >= goal
