@@ -85,6 +85,7 @@ export function ClaimSheet({
         .then((r) => r.transaction_hash as string | null);
       const viaChain = waitForClaimLanded(campaignId, kind, secret, {
         signal: abort.signal,
+        initialDelayMs: 90_000,
       }).then((ok) => (ok ? null : new Promise<never>(() => {})));
 
       const hash = (await Promise.race([viaWallet, viaChain])) as string | null;

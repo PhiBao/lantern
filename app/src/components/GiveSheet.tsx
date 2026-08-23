@@ -118,13 +118,15 @@ export function GiveSheet({
 
       setPhase("submitting");
 
-      // Whichever confirms first wins.
+      // The wallet leads; the chain is a safety net.
       //
-      // Some wallets hold this promise open long after the transaction has
-      // landed — one does not appear to resolve it at all — which left the UI
-      // stuck on "sending" for a donation that had already succeeded. The chain
-      // is the authority, so we watch the tally in parallel and accept either
-      // signal as proof.
+      // Wallets queue one approval per STRK20 action, so a donation legitimately
+      // sits unfinished while the user works through them. Confirming from the
+      // chain immediately declared success while an approval was still queued,
+      // which surfaced as a stray prompt after the UI said "done". So we wait on
+      // the wallet, and only fall back to chain confirmation if it stalls well
+      // past the point a human would have finished approving.
+      const RESCUE_AFTER_MS = 90_000;
       const abort = new AbortController();
 
       const viaWallet = account
@@ -133,6 +135,7 @@ export function GiveSheet({
 
       const viaChain = waitForRaisedChange(campaignId, raised, {
         signal: abort.signal,
+        initialDelayMs: RESCUE_AFTER_MS,
       }).then((c) =>
         c ? { kind: "chain" as const, hash: null } : null,
       );
@@ -360,11 +363,13 @@ export function GiveSheet({
 
       <p className="rounded-md border border-stone-200 bg-stone-50 px-3 py-2 text-xs leading-relaxed text-stone-600 dark:border-stone-800 dark:bg-stone-900/50 dark:text-stone-400">
         <strong className="font-medium text-stone-800 dark:text-stone-200">
-          Your wallet will ask twice.
+          Your wallet will ask twice, one prompt after the other.
         </strong>{" "}
         Once to move the funds out of your shielded balance, and once to record
-        the donation against this campaign. Both belong to the same transaction —
-        approve both, and nothing moves unless both go through.
+        the donation against this campaign. The second prompt is queued behind
+        the first, so it appears as soon as you approve — it is not a repeat.
+        Both belong to the same transaction, and nothing moves unless both go
+        through.
       </p>
 
       <button
@@ -383,9 +388,11 @@ export function GiveSheet({
       </button>
 
       <p aria-live="polite" className="text-center text-xs text-stone-500 dark:text-stone-500">
-        {phase === "submitting"
-          ? "Generating a zero-knowledge proof. This can take a while — keep this tab open."
-          : ""}
+        {phase === "confirming"
+          ? "Approve both prompts — the second is queued behind the first."
+          : phase === "submitting"
+            ? "Generating a zero-knowledge proof. If your wallet asks again, approve it — that's the second half of the same donation."
+            : ""}
       </p>
     </div>
   );

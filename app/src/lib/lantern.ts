@@ -115,8 +115,15 @@ export async function waitForClaimLanded(
   campaignId: number,
   kind: "refund" | "payout",
   secret: string,
-  opts: { signal?: AbortSignal } = {},
+  opts: { signal?: AbortSignal; initialDelayMs?: number } = {},
 ): Promise<boolean> {
+  // See waitForRaisedChange: the wallet owns its approval flow, so only step in
+  // after a grace period to rescue a hang.
+  if (opts.initialDelayMs) {
+    await new Promise((r) => setTimeout(r, opts.initialDelayMs));
+    if (opts.signal?.aborted) return false;
+  }
+
   const delays = [
     1500, 2000, 2500, 3000, 4000, 5000, 6000, 8000, 10000, 12000, 15000, 20000,
     25000, 30000,
@@ -158,8 +165,20 @@ export async function waitForClaimLanded(
 export async function waitForRaisedChange(
   campaignId: number,
   baseline: bigint,
-  opts: { signal?: AbortSignal } = {},
+  opts: { signal?: AbortSignal; initialDelayMs?: number } = {},
 ): Promise<Campaign | null> {
+  // Hold off before polling at all.
+  //
+  // Wallets queue one approval per action, so a donation legitimately sits
+  // unfinished while the user works through them. Confirming from the chain too
+  // eagerly declares success while an approval is still queued, which surfaces
+  // as a stray prompt after the UI already said "done". The wallet owns its own
+  // flow; this is only here to rescue a genuine hang.
+  if (opts.initialDelayMs) {
+    await new Promise((r) => setTimeout(r, opts.initialDelayMs));
+    if (opts.signal?.aborted) return null;
+  }
+
   // ~2 minutes total, front-loaded since most donations land within ~20s.
   const delays = [
     1500, 2000, 2500, 3000, 4000, 5000, 6000, 8000, 10000, 12000, 15000, 20000,
