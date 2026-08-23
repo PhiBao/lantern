@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { buildClaimActions } from "@/lib/actions";
 import { recoveryCodeToSecret } from "@/lib/commitments";
 import { formatAmount } from "@/lib/format";
+import { waitForClaimLanded } from "@/lib/lantern";
 import { VOYAGER_TX } from "@/lib/config";
 import {
   connectWallet,
@@ -75,8 +76,21 @@ export function ClaimSheet({
         recipient: account.address,
         kind,
       });
-      const { transaction_hash } = await account.strk20InvokeTransaction(actions);
-      setTxHash(transaction_hash);
+      // Same wallet-resolution caveat as the give flow: if the promise stalls,
+      // fall back to watching the chain. A payout flips payout_claimed; a refund
+      // flips the commitment's claimed flag. Either is proof it landed.
+      const abort = new AbortController();
+      const viaWallet = account
+        .strk20InvokeTransaction(actions)
+        .then((r) => r.transaction_hash as string | null);
+      const viaChain = waitForClaimLanded(campaignId, kind, secret, {
+        signal: abort.signal,
+      }).then((ok) => (ok ? null : new Promise<never>(() => {})));
+
+      const hash = (await Promise.race([viaWallet, viaChain])) as string | null;
+      abort.abort();
+
+      setTxHash(hash);
       setPhase("done");
     } catch (e) {
       const m = e instanceof Error ? e.message : String(e);
@@ -129,7 +143,7 @@ export function ClaimSheet({
     }
   }, [account, secret, token, campaignId, kind, isRefund]);
 
-  if (phase === "done" && txHash) {
+  if (phase === "done") {
     return (
       <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-4 dark:border-emerald-900 dark:bg-emerald-950/40">
         <p className="font-medium text-emerald-900 dark:text-emerald-200">
@@ -139,14 +153,21 @@ export function ClaimSheet({
           {formatAmount(amount, tokenDecimals, 6)} {tokenSymbol} is back in your
           shielded balance. The claim isn&apos;t linked to your public address.
         </p>
-        <a
-          href={`${VOYAGER_TX}${txHash}`}
-          target="_blank"
-          rel="noreferrer noopener"
-          className="mt-3 inline-block text-sm underline decoration-emerald-400 underline-offset-4"
-        >
-          View transaction
-        </a>
+        {txHash ? (
+          <a
+            href={`${VOYAGER_TX}${txHash}`}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="mt-3 inline-block text-sm underline decoration-emerald-400 underline-offset-4"
+          >
+            View transaction
+          </a>
+        ) : (
+          <p className="mt-3 text-xs text-emerald-800/80 dark:text-emerald-300/70">
+            Confirmed on-chain. Your wallet didn&apos;t return a transaction
+            hash, so there&apos;s no link.
+          </p>
+        )}
       </div>
     );
   }

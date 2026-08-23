@@ -1,5 +1,6 @@
 import { RpcProvider } from "starknet";
 import { LANTERN_ADDRESS, rpcUrl, tokenByAddress } from "./config";
+import { computeDonationCommitment } from "./commitments";
 
 /**
  * Read-only access to the Lantern contract.
@@ -101,4 +102,81 @@ export function campaignStatus(c: Campaign, nowSeconds: number): CampaignStatus 
 
   if (!met) return "failed";
   return c.payoutClaimed ? "succeeded_claimed" : "succeeded_unclaimed";
+}
+
+/**
+ * Resolve once a claim is visible on-chain.
+ *
+ * A payout flips the campaign's `payout_claimed`; a refund flips the stored
+ * commitment's `claimed`. Either is proof the transaction landed, which lets the
+ * UI stop depending on the wallet resolving its promise.
+ */
+export async function waitForClaimLanded(
+  campaignId: number,
+  kind: "refund" | "payout",
+  secret: string,
+  opts: { signal?: AbortSignal } = {},
+): Promise<boolean> {
+  const delays = [
+    1500, 2000, 2500, 3000, 4000, 5000, 6000, 8000, 10000, 12000, 15000, 20000,
+    25000, 30000,
+  ];
+
+  for (const ms of delays) {
+    if (opts.signal?.aborted) return false;
+    await new Promise((r) => setTimeout(r, ms));
+    if (opts.signal?.aborted) return false;
+
+    try {
+      if (kind === "payout") {
+        const c = await fetchCampaign(campaignId);
+        if (c?.payoutClaimed) return true;
+      } else {
+        const commitment = computeDonationCommitment(campaignId, secret);
+        const res = await call("get_donation", [commitment]);
+        // DonationEntry: campaign_id, token, amount, claimed
+        if (res.length >= 4 && BigInt(res[3]) === 1n) return true;
+      }
+    } catch {
+      // Transient RPC failure; later attempts retry.
+    }
+  }
+  return false;
+}
+
+/**
+ * Resolve once the campaign's raised total differs from `baseline`.
+ *
+ * Wallets do not agree on when to resolve a private transaction: some return as
+ * soon as it is submitted, others hold the promise until it is accepted, and at
+ * least one appears not to resolve it at all. Waiting on the wallet alone leaves
+ * the UI stuck on "sending" for a donation that has already landed.
+ *
+ * The chain is the authority, so watch it directly. Resolves with the updated
+ * campaign, or null if nothing changed inside the window.
+ */
+export async function waitForRaisedChange(
+  campaignId: number,
+  baseline: bigint,
+  opts: { signal?: AbortSignal } = {},
+): Promise<Campaign | null> {
+  // ~2 minutes total, front-loaded since most donations land within ~20s.
+  const delays = [
+    1500, 2000, 2500, 3000, 4000, 5000, 6000, 8000, 10000, 12000, 15000, 20000,
+    25000, 30000,
+  ];
+
+  for (const ms of delays) {
+    if (opts.signal?.aborted) return null;
+    await new Promise((r) => setTimeout(r, ms));
+    if (opts.signal?.aborted) return null;
+
+    try {
+      const fresh = await fetchCampaign(campaignId);
+      if (fresh && fresh.raised !== baseline) return fresh;
+    } catch {
+      // Transient RPC failure; later attempts retry.
+    }
+  }
+  return null;
 }

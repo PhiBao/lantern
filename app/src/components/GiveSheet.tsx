@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { buildDonateActions } from "@/lib/actions";
 import { generateSecret, secretToRecoveryCode } from "@/lib/commitments";
 import { formatAmount, parseAmount } from "@/lib/format";
+import { waitForRaisedChange } from "@/lib/lantern";
 import { VOYAGER_TX } from "@/lib/config";
 import {
   connectWallet,
@@ -108,16 +109,6 @@ export function GiveSheet({
     const secret = generateSecret();
 
     try {
-      // No dry run here on purpose.
-      //
-      // strk20PrepareInvoke triggers its own wallet prompt, so running it before
-      // strk20InvokeTransaction made users approve twice for one donation. The
-      // dry run existed to resolve which action shape the pool accepts; that is
-      // now settled empirically on mainnet (see lib/actions.ts), so the cost no
-      // longer buys anything. verifyDonateShape() remains exported for
-      // diagnostics if the protocol changes.
-      setPhase("confirming");
-
       const actions = buildDonateActions({
         token,
         amount: parsed!,
@@ -126,17 +117,38 @@ export function GiveSheet({
       });
 
       setPhase("submitting");
-      const { transaction_hash } = await account.strk20InvokeTransaction(actions);
 
-      setTxHash(transaction_hash);
+      // Whichever confirms first wins.
+      //
+      // Some wallets hold this promise open long after the transaction has
+      // landed — one does not appear to resolve it at all — which left the UI
+      // stuck on "sending" for a donation that had already succeeded. The chain
+      // is the authority, so we watch the tally in parallel and accept either
+      // signal as proof.
+      const abort = new AbortController();
+
+      const viaWallet = account
+        .strk20InvokeTransaction(actions)
+        .then((r) => ({ kind: "wallet" as const, hash: r.transaction_hash }));
+
+      const viaChain = waitForRaisedChange(campaignId, raised, {
+        signal: abort.signal,
+      }).then((c) =>
+        c ? { kind: "chain" as const, hash: null } : null,
+      );
+
+      const winner = await Promise.race([
+        viaWallet,
+        viaChain.then((r) => r ?? new Promise<never>(() => {})),
+      ]);
+
+      abort.abort();
+
+      setTxHash(winner.kind === "wallet" ? winner.hash : null);
       setRecoveryCode(secretToRecoveryCode(secret));
       setPhase("done");
 
-      // Pull the new tally in without making the user reload.
-      //
-      // The tally is the whole point of the product, so it moving is the
-      // feedback that matters. It lags the transaction by a block or two, so we
-      // re-read a few times with a backoff rather than once and hoping.
+      // Refresh the tally on the page behind the sheet.
       onDonated?.();
     } catch (e) {
       const m = e instanceof Error ? e.message : String(e);
@@ -166,10 +178,10 @@ export function GiveSheet({
       }
       setPhase("error");
     }
-  }, [account, amountValid, parsed, token, campaignId, onDonated]);
+  }, [account, amountValid, parsed, token, campaignId, onDonated, raised]);
 
   // ---------- Success ----------
-  if (phase === "done" && txHash) {
+  if (phase === "done") {
     return (
       <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-4 dark:border-emerald-900 dark:bg-emerald-950/40">
         <p className="font-medium text-emerald-900 dark:text-emerald-200">
@@ -208,14 +220,22 @@ export function GiveSheet({
           </div>
         )}
 
-        <a
-          href={`${VOYAGER_TX}${txHash}`}
-          target="_blank"
-          rel="noreferrer noopener"
-          className="mt-3 inline-block text-sm underline decoration-emerald-400 underline-offset-4 hover:text-emerald-950 dark:hover:text-emerald-100"
-        >
-          View transaction
-        </a>
+        {txHash ? (
+          <a
+            href={`${VOYAGER_TX}${txHash}`}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="mt-3 inline-block text-sm underline decoration-emerald-400 underline-offset-4 hover:text-emerald-950 dark:hover:text-emerald-100"
+          >
+            View transaction
+          </a>
+        ) : (
+          <p className="mt-3 text-xs text-emerald-800/80 dark:text-emerald-300/70">
+            Confirmed on-chain. Your wallet didn&apos;t hand back a transaction
+            hash, so there&apos;s no link — the donation is recorded either way,
+            as the total above shows.
+          </p>
+        )}
       </div>
     );
   }
