@@ -183,6 +183,28 @@ export function GiveSheet({
     }
   }, [account, amountValid, parsed, token, campaignId, onDonated, raised]);
 
+  /**
+   * Start a fresh donation after a successful one.
+   *
+   * Clears the previous amount rather than leaving it prefilled — reusing the
+   * last figure by accident is a real way to give twice what you meant to. Also
+   * re-reads the shielded balance, which is now lower, so the max is accurate
+   * and the "more than your balance" guard still works.
+   */
+  const giveAgain = useCallback(async () => {
+    setAmountInput("");
+    setTxHash(null);
+    setRecoveryCode(null);
+    setCopied(false);
+    setError(null);
+    setPhase("ready");
+
+    if (account) {
+      const bal = await readShieldedBalance(account, token);
+      if (bal.ok) setShielded(bal.balance);
+    }
+  }, [account, token]);
+
   // ---------- Success ----------
   if (phase === "done") {
     return (
@@ -239,6 +261,20 @@ export function GiveSheet({
             as the total above shows.
           </p>
         )}
+
+        <div className="mt-4 border-t border-emerald-300/60 pt-3 dark:border-emerald-900">
+          <button
+            type="button"
+            onClick={giveAgain}
+            className="rounded-md border border-emerald-400 bg-white/80 px-3 py-1.5 text-sm font-medium text-emerald-900 transition-colors hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 dark:border-emerald-800 dark:bg-stone-900/60 dark:text-emerald-200 dark:hover:bg-stone-900"
+          >
+            Give again
+          </button>
+          <p className="mt-2 text-xs text-emerald-800/80 dark:text-emerald-300/70">
+            Save your refund code first — it disappears when you start another
+            donation, and it cannot be recovered.
+          </p>
+        </div>
       </div>
     );
   }
