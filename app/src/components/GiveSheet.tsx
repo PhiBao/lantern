@@ -489,13 +489,13 @@ export function GiveSheet({
 
       <p className="rounded-md border border-stone-200 bg-stone-50 px-3 py-2 text-xs leading-relaxed text-stone-600 dark:border-stone-800 dark:bg-stone-900/50 dark:text-stone-400">
         <strong className="font-medium text-stone-800 dark:text-stone-200">
-          Your wallet will ask twice, one prompt after the other.
+          Your wallet will show two approval requests, often both at once.
         </strong>{" "}
-        Once to move the funds out of your shielded balance, and once to record
-        the donation against this campaign. The second prompt is queued behind
-        the first, so it appears as soon as you approve — it is not a repeat.
-        Both belong to the same transaction, and nothing moves unless both go
-        through.
+        They look almost identical, and that is expected: a private donation is
+        two steps — move the funds out of your shielded balance, then record the
+        donation. <strong className="font-medium">Approve both.</strong> They are
+        halves of one transaction, so nothing moves unless both go through, and
+        you are never charged twice.
       </p>
 
       <button
@@ -515,9 +515,9 @@ export function GiveSheet({
 
       <p aria-live="polite" className="text-center text-xs text-stone-500 dark:text-stone-500">
         {phase === "confirming"
-          ? "Approve both prompts — the second is queued behind the first."
+          ? "Approve both requests in your wallet."
           : phase === "submitting"
-            ? "Generating a zero-knowledge proof. If your wallet asks again, approve it — that's the second half of the same donation."
+            ? "Generating a zero-knowledge proof. If a second request is still open in your wallet, approve it — it is the other half of this donation."
             : ""}
       </p>
     </div>

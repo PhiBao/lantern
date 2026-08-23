@@ -250,3 +250,27 @@ https://app-wine-seven-35.vercel.app/c/6?shape=invoke-only
 If the pool rejects it the whole transaction reverts atomically and no funds
 move, so the downside is a failed transaction rather than a loss. If it succeeds
 with a single prompt, flip `DONATE_SHAPE` in `app/src/lib/actions.ts`.
+
+## Two approval requests per private action — unavoidable
+
+Both requests are raised **at the same time**, not sequentially, and they render
+almost identically. Rejecting one leaves the other open.
+
+This is not something a dapp can fix:
+
+- A private action needs at least two STRK20 actions. `invoke` alone is rejected
+  with `INVALID_REQUEST_PAYLOAD` — a Wallet-API-level validation failure, not a
+  contract revert, so the shape is structurally disallowed.
+- The official swap example is also two actions (`transfer(OPEN)` + `invoke`), so
+  every private DeFi flow on STRK20 inherits this.
+- `strk20InvokeTransaction` is a single JSON-RPC request
+  (`wallet_strk20InvokeTransaction`) — verified by reading starknet.js 10.4.0.
+  The dapp makes one call; the wallet decides to raise two approvals.
+
+**No double-spend.** Audited across a session of repeated testing: 6 donations
+against 6 `backer_count` increments, and the contract balance reconciles exactly
+against the sum of campaign tallies. Rejected duplicates produce nothing.
+
+What Lantern does about it: says so plainly before the user starts, keeps every
+wallet call user-initiated so no request is ever raised in the background, and
+guards against concurrent submits. The remaining friction is wallet-side.

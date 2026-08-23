@@ -259,10 +259,11 @@ export function ClaimSheet({
 
       <p className="rounded-md border border-stone-200 bg-stone-50 px-3 py-2 text-xs leading-relaxed text-stone-600 dark:border-stone-800 dark:bg-stone-900/50 dark:text-stone-400">
         <strong className="font-medium text-stone-800 dark:text-stone-200">
-          Your wallet will ask twice, one prompt after the other.
+          Your wallet will show two approval requests, often both at once.
         </strong>{" "}
-        Once to open a slot for the incoming funds, and once to release them from
-        the contract. The second is queued behind the first — it is not a repeat.
+        They look almost identical, and that is expected: open a slot for the
+        incoming funds, then release them from the contract.{" "}
+        <strong className="font-medium">Approve both.</strong>
       </p>
 
       <button
