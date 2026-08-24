@@ -4,6 +4,8 @@
 
 Private crowdfunding on Starknet. Public goals, public progress, cryptographically private donors.
 
+**[Live on mainnet →](https://app-wine-seven-35.vercel.app)** · **[3-minute demo →](https://youtu.be/RE3QUI-8XWY)** · Contract [`0x06fed63d…d93022c`](https://voyager.online/contract/0x06fed63d5a8a4af0d3edf59c01776883e29ee6730158a645a2c7204a0d93022c)
+
 ## What it does
 
 Lantern is a sealed fundraiser protocol built on [STRK20](https://strk20.starknet.io). A campaign shows:
@@ -89,14 +91,47 @@ Nothing is behind a login and nothing needs a wallet until you act.
 
 ## Verified on mainnet
 
-| What | Transaction |
+The complete lifecycle has run on Starknet mainnet — create, donate, reach the
+goal, collect. Not a testnet demo.
+
+| Step | Transaction |
 |---|---|
 | Shield into the pool | [`0x06a7a343…625b9`](https://voyager.online/tx/0x06a7a343054626a37f9eb81d5f71516cfe807a37c8a83724070555b2037625b9) |
 | Private donation | [`0x0449e60d…620689`](https://voyager.online/tx/0x0449e60d08650a7bd6a187aacf74112a3c53020017851cd3c0a1d31745620689) |
+| Private donation | [`0x038d24f9…f7af3`](https://voyager.online/tx/0x038d24f980d612b54629e6fb29f5fcde879914869dd8c345c4d75b089bcf7af3) |
+| Private donation | [`0x05692306…c22c7`](https://voyager.online/tx/0x056923063c7b8d9cc26cdc716dd7e8ff9adf797e098b46d3554c1a28631c22c7) |
+| Private payout claim | [`0x01afe646…2cf2`](https://voyager.online/tx/0x01afe646e2cfed5c77249bd0ccd34424171d1ff65cee20bb9f020825fbef2cf2) |
+| Private payout claim | [`0x05f86d9c…c059`](https://voyager.online/tx/0x05f86d9c66573264a80b2373ef905aaab2ba8a0029ea7b44eb2e40f665eec059) |
 
-The donation moved campaign #2 from `0` to `0.300000` with `backer_count: 1`,
-and left the Lantern contract holding exactly `0.3 USDC` — the measured delta,
-not a number the caller supplied.
+The first donation moved campaign #2 from `0` to `0.300000` with
+`backer_count: 1`, and left the contract holding exactly `0.3 USDC` — the
+measured delta, not a number the caller supplied. Campaign #7 later reported
+`payout_claimed: true`, closing the loop.
+
+## Three things worth stealing
+
+Findings from building this that apply to any STRK20 integration.
+
+**1. Don't trust the caller's amount.** The reference escrow helper stores the
+`amount` passed in calldata. For anything whose public total *is* the product,
+that is fatal — an inflatable tally destroys the only reason to trust the
+number. Lantern derives every donation from its own measured balance delta, so
+the tally cannot be inflated by a caller.
+
+**2. Cross-language Poseidon parity fails silently.** The commitment hash is
+computed in Cairo *and* in TypeScript. If those disagree, nothing errors —
+refunds simply become permanently unclaimable. The same reference vectors are
+asserted on both sides ([Cairo](contracts/tests/test_commitments.cairo),
+[TypeScript](app/src/lib/commitments.test.ts)) so a mismatch cannot ship. This
+is also how we found that secrets must stay under 2^251 to fit `felt252` — 256-bit
+secrets would intermittently produce unclaimable refunds.
+
+**3. Two wallet approvals per private action is unavoidable.** `invoke`-only is
+rejected by the Wallet API with `INVALID_REQUEST_PAYLOAD`, so a private action
+needs at least two STRK20 actions and the wallet raises an approval for each —
+both at once, looking near-identical. `strk20InvokeTransaction` is a single
+JSON-RPC call, so this is wallet-side, not something a dapp can collapse. Full
+write-up in [docs/ACTION-SHAPES.md](docs/ACTION-SHAPES.md).
 
 ## Security
 
